@@ -1,41 +1,31 @@
 #include <Arduino.h>
 
-#define CLK A0
+#define CLK A2
 #define DT  A1
-#define SW  A2
-#define M1PIN1 6
-#define M1PIN2 7
-#define CONTROL 9
+#define SW  A0
+#define M1PIN1 11
+#define M1PIN2 12
+#define CONTROL 13
 
-#define A 2
-#define B 3
-#define C 4
-#define D 5
+#define _A 2
+#define _B 3
+#define _C 4
+#define _D 5
+#define _E 6
+#define _F 7
+#define _G 8
 
-#define SEGMENTGND1 10
-#define SEGMENTGND2 11
+#define SEGMENTGND1 9
+#define SEGMENTGND2 10
 
 int currentStateCLK;
 int previousStateCLK; 
-int motorSpeed = 100;
+int motorSpeed = 0;
 
 int counter = 0;
-const threshold = 100;
+const int threshold = 100;
 int state = true;
 int index;
-
-const int numberBit[10][4] =  {
-    { LOW, LOW, LOW, LOW    },
-	{ LOW, LOW, LOW, HIGH   },
-	{ LOW, LOW, HIGH, LOW   },
-	{ LOW, LOW, HIGH, HIGH  },
-	{ LOW, HIGH, LOW, LOW   },
-	{ LOW, HIGH, LOW, HIGH  },
-	{ LOW, HIGH, HIGH, LOW  },
-	{ LOW, HIGH, HIGH, HIGH },
-	{ HIGH, LOW, LOW, LOW   },
-	{ HIGH, LOW, LOW, HIGH  }
-};
 
 
 /**
@@ -52,10 +42,16 @@ void setup() {
 	pinMode(M1PIN2, OUTPUT);
 	pinMode(CONTROL, OUTPUT);
 
-	pinMode(A, OUTPUT);
-	pinMode(B, OUTPUT);
-	pinMode(C, OUTPUT);
-	pinMode(D, OUTPUT);
+	pinMode(_A, OUTPUT);
+	pinMode(_B, OUTPUT);
+	pinMode(_C, OUTPUT);
+	pinMode(_D, OUTPUT);
+	pinMode(_E, OUTPUT);
+	pinMode(_F, OUTPUT);
+	pinMode(_G, OUTPUT);
+
+	pinMode(SEGMENTGND2, OUTPUT);
+	pinMode(SEGMENTGND2, OUTPUT);
 }
 
 void rotateLeft() {
@@ -80,16 +76,12 @@ void loop() {
 		}
 	}
 	
-	if (motorSpeed  < -5 || motorSpeed >= 5) {	// Motor is off
-		analogWrite(CONTROL, 0);
-		digitalWrite(M1PIN1, LOW);
-  		digitalWrite(M1PIN2, LOW);
-	} else if (motorSpeed < -6) {
+	if (motorSpeed < -10) {
 		analogWrite(CONTROL, abs(motorSpeed) );
 		digitalWrite(M1PIN1, HIGH);
-  		digitalWrite(M1PIN2, LOW);
-	} else if (motorSpeed >= 6) {
-		analogWrite(CONTROL, motorSpeed);
+		digitalWrite(M1PIN2, LOW);
+	} else if (motorSpeed >= 10) {
+		analogWrite(CONTROL, abs(motorSpeed));
 		digitalWrite(M1PIN1, LOW);
   		digitalWrite(M1PIN2, HIGH);
 	}
@@ -108,22 +100,100 @@ void loop() {
 	if (counter == threshold) {
 		state = !state;
 		if (state) {
-			index = floor(round(motorSpeed / 2.58) / 10);
-			digitalWrite(SEGMENTGND2, LOW);
-			digitalWrite(SEGMENTGND1, HIGH);
+			index = floor(round(abs(motorSpeed) / 2.55) / 10);
+			analogWrite(SEGMENTGND2, 100);
+			analogWrite(SEGMENTGND1, 0);
+			
 		} else {
-			index = floor(round(motorSpeed / 2.58) % 10);
-			digitalWrite(SEGMENTGND1, LOW);
-			digitalWrite(SEGMENTGND2, HIGH);
+			index = floor(round(abs(motorSpeed) / 2.55) % 10);
+			analogWrite(SEGMENTGND2, 0);
+			analogWrite(SEGMENTGND1, 100);
 		}
+		counter = 0;
 	}
 
-	digitalWrite(A, numberBit[index][0]);
-	digitalWrite(B, numberBit[index][1]);
-	digitalWrite(C, numberBit[index][2]);
-	digitalWrite(D, numberBit[index][3]);
+	if (index == 0) {
+		digitalWrite(_A, HIGH);
+		digitalWrite(_B, HIGH);
+		digitalWrite(_C, HIGH);
+		digitalWrite(_D, HIGH);
+		digitalWrite(_E, HIGH);
+		digitalWrite(_F, HIGH);
+		digitalWrite(_G, LOW);
+	} else if (index == 1) {
+		digitalWrite(_A, LOW);
+		digitalWrite(_B, HIGH);
+		digitalWrite(_C, HIGH);
+		digitalWrite(_D, LOW);
+		digitalWrite(_E, LOW);
+		digitalWrite(_F, LOW);
+		digitalWrite(_G, LOW);
+	} else if (index == 2) {
+		digitalWrite(_A, HIGH);
+		digitalWrite(_B, HIGH);
+		digitalWrite(_C, LOW);
+		digitalWrite(_D, HIGH);
+		digitalWrite(_E, HIGH);	
+		digitalWrite(_F, LOW);
+		digitalWrite(_G, HIGH);
+	} else if (index == 3) {
+		digitalWrite(_A, HIGH);
+		digitalWrite(_B, HIGH);
+		digitalWrite(_C, HIGH);
+		digitalWrite(_D, HIGH);
+		digitalWrite(_E, LOW);	
+		digitalWrite(_F, LOW);
+		digitalWrite(_G, HIGH);
+	} else if (index == 4) {
+		digitalWrite(_A, LOW);
+		digitalWrite(_B, HIGH);
+		digitalWrite(_C, HIGH);
+		digitalWrite(_D, LOW);
+		digitalWrite(_E, LOW);
+		digitalWrite(_F, HIGH);
+		digitalWrite(_G, HIGH);
+	} else if (index == 5) {
+		digitalWrite(_A, 180);
+		digitalWrite(_B, LOW);
+		digitalWrite(_C, HIGH);
+		digitalWrite(_D, HIGH);
+		digitalWrite(_E, LOW);
+		digitalWrite(_F, HIGH);
+		digitalWrite(_G, HIGH);
+	} else if (index == 6) {
+		digitalWrite(_A, 180);
+		digitalWrite(_B, LOW);
+		digitalWrite(_C, HIGH);
+		digitalWrite(_D, HIGH);
+		digitalWrite(_E, HIGH);
+		digitalWrite(_F, HIGH);
+		digitalWrite(_G, HIGH);
+	} else if (index == 7) {
+		digitalWrite(_A, HIGH);
+		digitalWrite(_B, HIGH);
+		digitalWrite(_C, HIGH);
+		digitalWrite(_D, LOW);
+		digitalWrite(_E, LOW);
+		digitalWrite(_F, LOW);
+		digitalWrite(_G, LOW);
+	} else if (index == 8) {
+		digitalWrite(_A, HIGH);
+		digitalWrite(_B, HIGH);
+		digitalWrite(_C, HIGH);
+		digitalWrite(_D, HIGH);
+		digitalWrite(_E, HIGH);
+		digitalWrite(_F, HIGH);
+		digitalWrite(_G, HIGH);
+	} else if (index == 9) {
+		digitalWrite(_A, HIGH);
+		digitalWrite(_B, HIGH);
+		digitalWrite(_C, HIGH);
+		digitalWrite(_D, LOW);
+		digitalWrite(_E, LOW);
+		digitalWrite(_F, HIGH);
+		digitalWrite(_G, HIGH);
+	}
 	
-
 	counter++;
 	previousStateCLK = currentStateCLK; // update state
 }
