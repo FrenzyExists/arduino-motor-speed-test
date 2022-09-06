@@ -1,4 +1,4 @@
-Motor test run (sort of)
+# Basic Motor control with Rotary Encoder
 
 An experimental circuit where I learn how to use a motor and control it via some rotary encoder.
 
