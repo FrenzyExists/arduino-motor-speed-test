@@ -2,9 +2,9 @@
 
 #define CLK A1
 #define DT  A0
-// #define M1PIN1 11
-// #define M1PIN2 12
-// #define CONTROL 13
+#define M1PIN1 11
+#define M1PIN2 12
+#define CONTROL 13
 
 #define _A 2
 #define _B 3
@@ -100,7 +100,21 @@ void rotaryEncoderCtrl() {
 
 
 void setMotorSpeed(int speed, int delta) {
-	
+	if (speed < 0) {
+		analogWrite(CONTROL, abs(speed * delta));
+		digitalWrite(M1PIN1, HIGH);
+		digitalWrite(M1PIN2, LOW);
+	} else {
+		analogWrite(CONTROL, abs(speed * delta));
+		digitalWrite(M1PIN1, LOW);
+  		digitalWrite(M1PIN2, HIGH);
+	}
+}
+
+void initMotor() {
+	pinMode(M1PIN1, OUTPUT);
+	pinMode(M1PIN2, OUTPUT);
+	pinMode(CONTROL, OUTPUT);
 }
 
 void resetDisplay() {
@@ -134,6 +148,7 @@ void initDisplays() {
 void displayAllDisplay() {
 	if (digitCounter == delayCounter) {
 		state = !state;
+		setMotorSpeed(numberDisplay, 2);
 		if (state) {
 			displayOneDigit(abs(floor(numberDisplay % 10)), 0);
 		} else {
@@ -152,6 +167,7 @@ void setup() {
 
 	initDisplays();
 	resetDisplay();
+	initMotor();
 
 	previousStateCLK = digitalRead(DT) << 1 | digitalRead(CLK);
 	attachInterrupt(0, rotaryEncoderCtrl, CHANGE);
