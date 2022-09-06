@@ -1,11 +1,10 @@
 #include <Arduino.h>
 
-#define CLK A2
-#define DT  A1
-#define SW  A0
-#define M1PIN1 11
-#define M1PIN2 12
-#define CONTROL 13
+#define CLK A1
+#define DT  A0
+// #define M1PIN1 11
+// #define M1PIN2 12
+// #define CONTROL 13
 
 #define _A 2
 #define _B 3
@@ -17,183 +16,151 @@
 
 #define SEGMENTGND1 9
 #define SEGMENTGND2 10
+int commons[] = {
+  SEGMENTGND1, SEGMENTGND2
+};
+int commonLength = sizeof(commons)/sizeof(commons[0]);
 
-int currentStateCLK;
-int previousStateCLK; 
-int motorSpeed = 0;
+
+uint8_t previousStateCLK; 
+int numberDisplay = 0;
+int rotaryCounter = 0;
+int secondCounter = 0;
 
 int counter = 0;
 const int threshold = 100;
 int state = true;
 int index;
+int segments[] = {
+	_A, _B, _C, _D, _E, _F, _G
+};
+int segmentLength = sizeof(segments)/sizeof(segments[0]);
 
+int displayDigits[] = {
+  0b00111111, /* 0 */
+  0b00000110, /* 1 */
+  0b01011011, /* 2 */
+  0b01001111, /* 3 */
+  0b01100110, /* 4 */
+  0b01101101, /* 5 */
+  0b01111101, /* 6 */
+  0b00000111, /* 7 */
+  0b01111111, /* 8 */
+  0b01100111  /* 9 */
+};
+
+#define A_BIT 1
+#define B_BIT 2
+#define C_BIT 4
+#define D_BIT 8
+#define E_BIT 16
+#define F_BIT 32
+#define G_BIT 64
+int digitPosition[] = {A_BIT, B_BIT, C_BIT, D_BIT, E_BIT, F_BIT, G_BIT};
+
+int digitCounter = 0;
+int delayCounter = 16;
+bool stateCommon = false;
 
 /**
- * Scale is 2.58 between the two seven digit display (0 - 99) and the motor speed (0 - 255)
- */
-
-void setup() {
-	pinMode(SW, INPUT);
-  	digitalWrite(SW, HIGH);
-  	pinMode(CLK, INPUT);
-  	pinMode(DT, INPUT);
-
-	pinMode(M1PIN1, OUTPUT);
-	pinMode(M1PIN2, OUTPUT);
-	pinMode(CONTROL, OUTPUT);
-
-	pinMode(_A, OUTPUT);
-	pinMode(_B, OUTPUT);
-	pinMode(_C, OUTPUT);
-	pinMode(_D, OUTPUT);
-	pinMode(_E, OUTPUT);
-	pinMode(_F, OUTPUT);
-	pinMode(_G, OUTPUT);
-
-	pinMode(SEGMENTGND2, OUTPUT);
-	pinMode(SEGMENTGND2, OUTPUT);
-}
+ * Rotary Encoder functions
+*/
 
 void rotateLeft() {
-	motorSpeed = motorSpeed < -255 ? -255 : motorSpeed - 5;
+	numberDisplay = numberDisplay < -99 ? -99 : numberDisplay - 1;
 }
 
 void rotateRight() {
-	motorSpeed = motorSpeed > 255 ? 255 : motorSpeed + 5;
+	numberDisplay = numberDisplay >= 99 ? 99 : numberDisplay + 1;
 }
 
-void loop() {
-  // Read the current state of inputCLK
-	currentStateCLK = digitalRead(CLK);
+void rotaryEncoderCtrl() {
+	// Read the current state of inputCLK
+	uint8_t currentStateCLK = 0;
+	currentStateCLK = digitalRead(DT) << 1 | digitalRead(CLK);
 
-	if (currentStateCLK != previousStateCLK){ 
-		// If the inputDT state is different than the inputCLK
-		// state then the encoder is rotating counterclockwise
-		if (digitalRead(DT) != currentStateCLK) {
-			rotateRight();
-		} else {
-			rotateLeft();
+	if (currentStateCLK == previousStateCLK) { return; }
+
+	if (rotaryCounter == 16) {
+		secondCounter++;
+		if (secondCounter == 4) {
+			if (bitRead(currentStateCLK, 0) == bitRead(previousStateCLK, 1)) { 
+					rotateRight();
+			} else {
+					rotateLeft();
+			}
+			Serial.println(numberDisplay);
+			secondCounter = 0;
 		}
+		previousStateCLK = currentStateCLK; // update state
 	}
+	rotaryCounter = rotaryCounter == 16 ? 0 : rotaryCounter+1;
+}
+
+
+
+void setMotorSpeed(int speed, int delta) {
 	
-	if (motorSpeed < -10) {
-		analogWrite(CONTROL, abs(motorSpeed) );
-		digitalWrite(M1PIN1, HIGH);
-		digitalWrite(M1PIN2, LOW);
-	} else if (motorSpeed >= 10) {
-		analogWrite(CONTROL, abs(motorSpeed));
-		digitalWrite(M1PIN1, LOW);
-  		digitalWrite(M1PIN2, HIGH);
+}
+
+void resetDisplay() {
+	for (int i = 0; i < segmentLength ; i++) {
+		digitalWrite(segments[i], HIGH);
 	}
+	for (int i = 0 ; i < commonLength ; i++) {
+		digitalWrite(commons[i], LOW);
+	}
+}
 
-	/**
-	 * Ok, so uh, This following section is a dirty trick I did where I take advantage of the
-	 * arduinos' clock and two NPN transistors transistors as switches controlled by the arduino. 
-	 * 
-	 * first digit is obtained by
-	 * floor(round(motorSpeed / 2.58) / 10)
-	 * 
-	 * second is obtained by
-	 * round(motorSpeed / 2.58) % 10
-	 */
+void displayOneDigit(int n,int pos) {
+  for (int i = 0; i < segmentLength; i++) {
+    if (displayDigits[n] & digitPosition[i]) 
+      digitalWrite(segments[i], LOW);
+    }
+    digitalWrite(commons[pos], HIGH);
+}
 
-	if (counter == threshold) {
+void initDisplays() {
+	// Turn on segment 
+	pinMode(SEGMENTGND1, OUTPUT);
+	pinMode(SEGMENTGND2, OUTPUT);
+
+	for (int i = 0 ; i < segmentLength ; i++ ) {
+		pinMode(segments[i], OUTPUT);
+	}
+	resetDisplay();
+}
+
+void displayAllDisplay() {
+	if (digitCounter == delayCounter) {
 		state = !state;
 		if (state) {
-			index = floor(round(abs(motorSpeed) / 2.55) / 10);
-			analogWrite(SEGMENTGND2, 100);
-			analogWrite(SEGMENTGND1, 0);
-			
+			displayOneDigit(abs(floor(numberDisplay % 10)), 0);
 		} else {
-			index = floor(round(abs(motorSpeed) / 2.55) % 10);
-			analogWrite(SEGMENTGND2, 0);
-			analogWrite(SEGMENTGND1, 100);
+			displayOneDigit(abs(floor(numberDisplay / 10)), 1);
 		}
-		counter = 0;
+		resetDisplay();
+		digitCounter = 0;
 	}
+	digitCounter++;
 
-	if (index == 0) {
-		digitalWrite(_A, HIGH);
-		digitalWrite(_B, HIGH);
-		digitalWrite(_C, HIGH);
-		digitalWrite(_D, HIGH);
-		digitalWrite(_E, HIGH);
-		digitalWrite(_F, HIGH);
-		digitalWrite(_G, LOW);
-	} else if (index == 1) {
-		digitalWrite(_A, LOW);
-		digitalWrite(_B, HIGH);
-		digitalWrite(_C, HIGH);
-		digitalWrite(_D, LOW);
-		digitalWrite(_E, LOW);
-		digitalWrite(_F, LOW);
-		digitalWrite(_G, LOW);
-	} else if (index == 2) {
-		digitalWrite(_A, HIGH);
-		digitalWrite(_B, HIGH);
-		digitalWrite(_C, LOW);
-		digitalWrite(_D, HIGH);
-		digitalWrite(_E, HIGH);	
-		digitalWrite(_F, LOW);
-		digitalWrite(_G, HIGH);
-	} else if (index == 3) {
-		digitalWrite(_A, HIGH);
-		digitalWrite(_B, HIGH);
-		digitalWrite(_C, HIGH);
-		digitalWrite(_D, HIGH);
-		digitalWrite(_E, LOW);	
-		digitalWrite(_F, LOW);
-		digitalWrite(_G, HIGH);
-	} else if (index == 4) {
-		digitalWrite(_A, LOW);
-		digitalWrite(_B, HIGH);
-		digitalWrite(_C, HIGH);
-		digitalWrite(_D, LOW);
-		digitalWrite(_E, LOW);
-		digitalWrite(_F, HIGH);
-		digitalWrite(_G, HIGH);
-	} else if (index == 5) {
-		digitalWrite(_A, 180);
-		digitalWrite(_B, LOW);
-		digitalWrite(_C, HIGH);
-		digitalWrite(_D, HIGH);
-		digitalWrite(_E, LOW);
-		digitalWrite(_F, HIGH);
-		digitalWrite(_G, HIGH);
-	} else if (index == 6) {
-		digitalWrite(_A, 180);
-		digitalWrite(_B, LOW);
-		digitalWrite(_C, HIGH);
-		digitalWrite(_D, HIGH);
-		digitalWrite(_E, HIGH);
-		digitalWrite(_F, HIGH);
-		digitalWrite(_G, HIGH);
-	} else if (index == 7) {
-		digitalWrite(_A, HIGH);
-		digitalWrite(_B, HIGH);
-		digitalWrite(_C, HIGH);
-		digitalWrite(_D, LOW);
-		digitalWrite(_E, LOW);
-		digitalWrite(_F, LOW);
-		digitalWrite(_G, LOW);
-	} else if (index == 8) {
-		digitalWrite(_A, HIGH);
-		digitalWrite(_B, HIGH);
-		digitalWrite(_C, HIGH);
-		digitalWrite(_D, HIGH);
-		digitalWrite(_E, HIGH);
-		digitalWrite(_F, HIGH);
-		digitalWrite(_G, HIGH);
-	} else if (index == 9) {
-		digitalWrite(_A, HIGH);
-		digitalWrite(_B, HIGH);
-		digitalWrite(_C, HIGH);
-		digitalWrite(_D, LOW);
-		digitalWrite(_E, LOW);
-		digitalWrite(_F, HIGH);
-		digitalWrite(_G, HIGH);
-	}
-	
-	counter++;
-	previousStateCLK = currentStateCLK; // update state
+}
+
+void setup() {
+  	pinMode(CLK, INPUT_PULLUP);
+  	pinMode(DT, INPUT_PULLUP);
+
+	initDisplays();
+	resetDisplay();
+
+	previousStateCLK = digitalRead(DT) << 1 | digitalRead(CLK);
+	attachInterrupt(0, rotaryEncoderCtrl, CHANGE);
+  	attachInterrupt(1, rotaryEncoderCtrl, CHANGE);
+	Serial.begin(9600);
+}
+
+
+void loop() {
+	rotaryEncoderCtrl();
+	displayAllDisplay();
 }
